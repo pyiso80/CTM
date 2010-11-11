@@ -71,8 +71,82 @@ local Xs S in
    thread S={Sum Xs 0} end
    {Browse S}
 end
+% --
+local Xs S in
+   thread Xs={Generate 0 1500001} end
+   thread S={FoldL Xs fun {$ X Y} X+Y end 0} end
+   {Browse S}
+end
+
+%-------------------------------------------------------------------------------
+% Transducers and pipelines
+declare
+fun {IsOdd X} X mod 2 \= 0 end
+local Xs Ys S in
+   thread Xs={Generate 0 100} end
+   thread Ys={Filter Xs IsOdd} end
+   {Browse Ys}
+   thread S={Sum Ys 0} end
+   {Browse S}
+end
+
+%-------------------------------------------------------------------------------
+%-------------------------------------------------------------------------------
+
+declare
+proc {DGen N Xs}
+   case Xs
+   of X|Xr then X=N {DGen N+1 Xr}
+   end
+end
+%-----
+fun {DSum ?Xs A Limit}
+   if Limit>0 then
+      X|Xr=Xs        % to let X be bound by DGen 
+   in
+      {DSum Xr A+X Limit-1}        % A+X will block until X is bound by DGen
+   else
+      A
+   end
+end
+%-----
+local Xs S in
+   thread {DGen 0 Xs} end
+   thread {Browse Xs} end
+   thread S={DSum Xs 0 10} end
+   thread {Browse S} end
+end
+%-----
+declare
+proc {Buffer N ?Xs Ys} % Xs is the buffer list, Ys is to communicate with the consumer
+   fun {Startup N ?Xs} % create a list of N unbound vars with an unbound tail and return the tail 
+      if N==0 then Xs
+      else Xr in Xs=_|Xr {Startup N-1 Xr} end
+   end
+   %------------------------------
+   % AskLoop retrun an element from the buffer when the consumer ask for it by binding Ys
+   % and also replenlish the buffer   
+   proc {AskLoop Ys ?Xs ?End} % Ys will be bound to _|Yr by the consumer
+      case Ys
+      of Y|Yr then Xr End2 in
+         Xs=Y|Xr % Y will received an element from the buffer	 
+	 End=_|End2 % Replenish the buffer
+	 {AskLoop Yr Xr End2}
+      end
+   end
+   End={Startup N Xs}
+in
+   {AskLoop Ys Xs End} % Ys is the arg of the Buffer, and it communicates with the consumer, Xs is the buffer list
+end
+
+
+
+
 
    
+
+   
+
 
 
 
